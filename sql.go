@@ -1,7 +1,6 @@
 package gosql
 
 import (
-	"ShopSupplierApi/utils"
 	"database/sql"
 	"errors"
 	"regexp"
@@ -41,17 +40,14 @@ func Open(username string, password string, database string, params ...interface
 		port = 3306
 	}
 	var err error
-	Db, err = sql.Open("mysql", username+":"+password+"@tcp("+url+":"+strconv.Itoa(port)+")/"+database+"?loc=Local")
-	if err != nil {
-		utils.Logger.Error(err.Error())
-	}
+	db, err = sql.Open("mysql", username+":"+password+"@tcp("+url+":"+strconv.Itoa(port)+")/"+database+"?loc=Local")
 	return err
 }
 
 //Close 关闭数据库连接
 func Close() {
-	if Db != nil {
-		Db.Close()
+	if db != nil {
+		db.Close()
 	}
 }
 
@@ -60,14 +56,13 @@ func Close() {
 //param callback func(*sql.Rows) 回调函数指针
 //param args... interface{} SQL参数
 func RowsCallbackResult(sql string, callback RowsCallback, args ...interface{}) error {
-	if Db == nil {
+	if db == nil {
 		return ErrorNotOpen
 	}
-	if err := Db.Ping(); err != nil {
+	if err := db.Ping(); err != nil {
 		return err
 	}
-	utils.Logger.Debug(sql+" \n\tArgs:", args...)
-	rows, err := Db.Query(sql, args...)
+	rows, err := db.Query(sql, args...)
 	if err != nil {
 		return err
 	}
@@ -90,14 +85,13 @@ func RowsCallbackResult(sql string, callback RowsCallback, args ...interface{}) 
 //param sql string SQL
 //param args... interface{} SQL参数
 func Rows(sql string, args ...interface{}) ([]map[string]interface{}, error) {
-	if Db == nil {
+	if db == nil {
 		return nil, ErrorNotOpen
 	}
-	if err := Db.Ping(); err != nil {
+	if err := db.Ping(); err != nil {
 		return nil, err
 	}
-	utils.Logger.Debug(sql+" \n\tArgs:", args...)
-	rows, err := Db.Query(sql, args...)
+	rows, err := db.Query(sql, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -128,10 +122,10 @@ func Rows(sql string, args ...interface{}) ([]map[string]interface{}, error) {
 //param sql string SQL
 //param args... interface{} SQL参数
 func Row(sql string, args ...interface{}) (*sql.Row, error) {
-	if Db == nil {
+	if db == nil {
 		return nil, errors.New("Database not open,please call Open function before")
 	}
-	if err := Db.Ping(); err != nil {
+	if err := db.Ping(); err != nil {
 		return nil, err
 	}
 	if ok, _ := regexp.MatchString("(?i)(.*?) LIMIT (.*?)\\s?(.*)?", sql); ok {
@@ -139,22 +133,20 @@ func Row(sql string, args ...interface{}) (*sql.Row, error) {
 	} else {
 		sql += " LIMIT 1 "
 	}
-	utils.Logger.Debug(sql+" \n\tArgs:", args...)
-	return Db.QueryRow(sql, args...), nil
+	return db.QueryRow(sql, args...), nil
 }
 
 //Exec 执行一条SQL
 //param sql string SQL
 //param args... interface{} SQL参数
 func Exec(sql string, args ...interface{}) (sql.Result, error) {
-	if Db == nil {
+	if db == nil {
 		return nil, errors.New("Database not open,please call Open function before")
 	}
-	if err := Db.Ping(); err != nil {
+	if err := db.Ping(); err != nil {
 		return nil, err
 	}
-	utils.Logger.Debug(sql+" \n\tArgs:", args...)
-	return Db.Exec(sql, args...)
+	return db.Exec(sql, args...)
 }
 
 //Count SQL语句条数统计
@@ -169,15 +161,14 @@ func Count(sql string, args ...interface{}) (int64, error) {
 	}
 	sql = regexp.MustCompile("^(?i)select .*? from (.*) order by (.*)").ReplaceAllString(sql, "SELECT count(1) FROM $1")
 	sql = regexp.MustCompile("^(?i)select .*? from (.*)").ReplaceAllString(sql, "SELECT count(1) FROM $1")
-	if Db == nil {
+	if db == nil {
 		return 0, errors.New("Database not open,please call Open function before")
 	}
 	var err error
-	if err = Db.Ping(); err != nil {
+	if err = db.Ping(); err != nil {
 		return 0, err
 	}
-	utils.Logger.Debug(sql+" \n\tArgs:", args...)
-	result := Db.QueryRow(sql, args...)
+	result := db.QueryRow(sql, args...)
 	var count int64
 	err = result.Scan(&count)
 	if err != nil {
@@ -212,14 +203,14 @@ func ParseSQL(sql string, args map[string]interface{}) (string, []interface{}, e
 //Transaction 事务处理
 //param t TransactionFunc 事务处理函数
 func Transaction(t TransactionFunc) error {
-	if Db == nil {
+	if db == nil {
 		return errors.New("Database not open,please call Open function before")
 	}
 	var err error
-	if err = Db.Ping(); err != nil {
+	if err = db.Ping(); err != nil {
 		return err
 	}
-	tx, err := Db.Begin()
+	tx, err := db.Begin()
 	if err == nil {
 		if t != nil {
 			err = t(tx)
@@ -228,14 +219,16 @@ func Transaction(t TransactionFunc) error {
 			} else {
 				err = tx.Commit()
 				if err != nil { //事务提交失败,回滚事务,返回错误
-					utils.Logger.Error("事务提交失败 ", err.Error())
 					tx.Rollback()
 				}
 			}
 
 		}
-	} else {
-		utils.Logger.Error("事务开启失败 ", err.Error())
 	}
 	return err
+}
+
+//GetDb 获取数据库对象
+func GetDb() *sql.DB {
+	return db
 }
