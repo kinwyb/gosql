@@ -229,6 +229,13 @@ func Transaction(t TransactionFunc) error {
 }
 
 //GetDb 获取数据库对象
-func GetDb() *sql.DB {
-	return db
+func GetDb() (*sql.DB, error) {
+	if db == nil {
+		return nil, errors.New("Database not open,please call Open function before")
+	}
+	var err error
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+	return db, nil
 }
