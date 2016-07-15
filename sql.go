@@ -15,7 +15,7 @@ type TransactionFunc func(tx *sql.Tx) error
 
 //DbConnect 数据库连接结构接口
 type DbConnect interface {
-	Create(connect string) SQL
+	Create(connect string) (SQL, error)
 }
 
 var (
@@ -63,6 +63,8 @@ type SQL interface {
 	Transaction(t TransactionFunc) error
 	//GetDb 获取数据库对象
 	GetDb() (*sql.DB, error)
+	//Close 关闭数据库
+	Close()
 }
 
 //Register 注册数据库操作对象
@@ -87,7 +89,7 @@ func Open(connectString string) (SQL, error) {
 	driversMu.Lock()
 	if value, ok := drivers[strs[0]]; ok {
 		driversMu.Unlock()
-		return value.Create(strs[1]), nil
+		return value.Create(strs[1])
 	}
 	driversMu.Unlock()
 	return nil, errors.New("未注册数据库[" + strs[0] + "]操作对象")

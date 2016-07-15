@@ -22,10 +22,14 @@ type Conn struct {
 }
 
 //Create 打开一个数据库连接
-func (c *Conn) Create(connect string) gosql.SQL {
+func (c *Conn) Create(connect string) (res gosql.SQL, err error) {
 	result := &Mysql{}
-	result.db, _ = sql.Open("mysql", connect)
-	return result
+	result.db, err = sql.Open("mysql", connect)
+	if err != nil {
+		return nil, err
+	}
+	res = result
+	return
 }
 
 //Mysql 操作对象
